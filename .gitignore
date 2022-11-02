@@ -1,5 +1,11 @@
+# build
 /target
 
+# local build config
 .cargo
 
+# excluding for now
 Cargo.lock
+
+# dev env
+.vscode
