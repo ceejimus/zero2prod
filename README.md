@@ -72,3 +72,5 @@ cargo expand
   - the problem is sqlx macros need the DATABASE_URL environment variable and grab it from `.env`
   - see [the docs for setting environment variables](https://docs.github.com/en/enterprise-cloud@latest/actions/learn-github-actions/environment-variables)
   - see [this custom actions example](https://github.com/ozaytsev86/create-env-file-action) for getting values from GitHub secrets
+- move to use Environment Files instead of `save-state` in GitHub actions
+- see [this post](https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/)

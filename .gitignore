@@ -5,7 +5,7 @@
 .cargo
 
 # excluding for now
-Cargo.lock
+# Cargo.lock # temp
 
 # dev env
 .vscode
