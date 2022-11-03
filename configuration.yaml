@@ -1,0 +1,8 @@
+# I wouldn't normally commit a config file but since it's just for learns
+application_port: 8000
+database:
+  host: "127.0.0.1"
+  port: 5432
+  username: "postgres"
+  password: "password"
+  database_name: "newsletter"
