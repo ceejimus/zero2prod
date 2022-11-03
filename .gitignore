@@ -9,3 +9,7 @@ Cargo.lock
 
 # dev env
 .vscode
+
+# config
+configuration.yaml
+.env
