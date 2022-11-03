@@ -67,3 +67,8 @@ cargo expand
 - refactor `routes/mod.rs` to `routes.rs`
 - look into clippy warning in the routes mod saying the re-exports aren't used
 - get familiar with the GitHub Actions specs
+  - fix "Node.js 12 actions are deprecated" warnings
+- get GitHub Actions tests to succeed w/o committing .env file
+  - the problem is sqlx macros need the DATABASE_URL environment variable and grab it from `.env`
+  - see [the docs for setting environment variables](https://docs.github.com/en/enterprise-cloud@latest/actions/learn-github-actions/environment-variables)
+  - see [this custom actions example](https://github.com/ozaytsev86/create-env-file-action) for getting values from GitHub secrets
