@@ -59,6 +59,14 @@ cargo expand
 
 > All arguments in the signature of a route handler must implement the `FromRequest` trait.
 
+### Resource Acquisition Is Initialization (RAII)
+
+Often implemented in rust by piggybacking on the `Drop` trait.
+
+### Running cargo tools using nightly
+
+`cargo +nightly command`
+
 ## TODOS
 
 - get code coverage to show on github
@@ -81,3 +89,4 @@ cargo expand
 - move to use Environment Files instead of `save-state` in GitHub actions
 - see [this post](https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/)
   0
+- look into [higher-ranked trait bound (HRTB)](https://doc.rust-lang.org/nomicon/hrtb.html)
