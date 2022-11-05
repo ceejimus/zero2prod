@@ -90,3 +90,6 @@ Often implemented in rust by piggybacking on the `Drop` trait.
 - see [this post](https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/)
   0
 - look into [higher-ranked trait bound (HRTB)](https://doc.rust-lang.org/nomicon/hrtb.html)
+- make docker image tiny
+  - see [rust-musl-builder](https://github.com/emk/rust-musl-builder) - pg #150 in book
+  - see [how to strip symbols](https://github.com/johnthagen/min-sized-rust#strip-symbols-from-binary)
