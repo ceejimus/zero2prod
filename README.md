@@ -93,3 +93,4 @@ Often implemented in rust by piggybacking on the `Drop` trait.
 - make docker image tiny
   - see [rust-musl-builder](https://github.com/emk/rust-musl-builder) - pg #150 in book
   - see [how to strip symbols](https://github.com/johnthagen/min-sized-rust#strip-symbols-from-binary)
+- documentation!
