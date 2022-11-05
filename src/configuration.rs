@@ -1,9 +1,13 @@
+use std::fmt::format;
+
+use actix_web::App;
 use secrecy::{ExposeSecret, Secret};
+use serde::Deserialize;
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
-    pub application_port: u16,
+    pub application: ApplicationSettings,
 }
 
 #[derive(serde::Deserialize)]
@@ -35,6 +39,18 @@ impl DatabaseSettings {
             self.host,
             self.port
         ))
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ApplicationSettings {
+    pub port: u16,
+    pub host: String,
+}
+
+impl ApplicationSettings {
+    pub fn get_address(&self) -> String {
+        format!("{}:{}", self.host, self.port)
     }
 }
 
