@@ -1,10 +1,5 @@
 use unicode_segmentation::UnicodeSegmentation;
 
-pub struct NewSubscriber {
-    pub email: String,
-    pub name: SubscriberName,
-}
-
 #[derive(Debug)]
 pub struct SubscriberName(String);
 
@@ -31,7 +26,7 @@ impl AsRef<str> for SubscriberName {
 }
 
 #[cfg(test)]
-mod domain_tests {
+mod tests {
     use super::*;
     use claim::{assert_err, assert_ok};
 

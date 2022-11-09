@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -6,10 +8,26 @@ use sqlx::{
     ConnectOptions,
 };
 
+use crate::domain::SubscriberEmail;
+
 #[derive(serde::Deserialize)]
 pub struct Settings {
-    pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub database: DatabaseSettings,
+    pub email_client: EmailClientSettings,
+}
+
+#[derive(Deserialize)]
+pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub port: u16,
+    pub host: String,
+}
+
+impl ApplicationSettings {
+    pub fn get_address(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -48,15 +66,20 @@ impl DatabaseSettings {
 }
 
 #[derive(Deserialize)]
-pub struct ApplicationSettings {
-    #[serde(deserialize_with = "deserialize_number_from_string")]
-    pub port: u16,
-    pub host: String,
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub authorization_token: Secret<String>,
+    sender_email: String,
+    timeout_milliseconds: u64,
 }
 
-impl ApplicationSettings {
-    pub fn get_address(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
+    }
+
+    pub fn timeout(&self) -> Duration {
+        Duration::from_millis(self.timeout_milliseconds)
     }
 }
 
