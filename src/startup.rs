@@ -18,6 +18,8 @@ pub struct Application {
     server: Server,
 }
 
+pub struct ApplicationBaseUrl(pub String);
+
 impl Application {
     pub async fn build(configuration: &Settings) -> Result<Self, std::io::Error> {
         let sender_email = configuration
@@ -41,7 +43,12 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
 
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(
+            listener,
+            connection_pool,
+            email_client,
+            configuration.application.base_url.clone(),
+        )?;
 
         Ok(Application { port, server })
     }
@@ -66,9 +73,11 @@ pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> std::io::Result<Server> {
     let db_pool = web::Data::new(db_pool); // this is just a fancy Arc
     let email_client = web::Data::new(email_client);
+    let application_base_url = web::Data::new(ApplicationBaseUrl(base_url));
     // HttpServer handles all transport-level concerns (port binding, TLS, connections, etc.)
     let server = HttpServer::new(move || {
         // App handles logic (routing, request handling, etc.)
@@ -77,8 +86,13 @@ pub fn run(
             // .route("/", Route::new().guard(Guard::get()).to(_))
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
+            .route(
+                "/subscriptions/confirm",
+                web::get().to(confirm_subscription),
+            )
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
+            .app_data(application_base_url.clone())
     })
     // .bind(address)? // we can have the server create a listener for us
     .listen(listener)?

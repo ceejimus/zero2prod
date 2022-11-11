@@ -46,6 +46,8 @@ Ref links from book:
 - [actix-web docs](https://docs.rs/actix-web/latest/actix_web/)
 - [actix-web examples](https://github.com/actix/examples/)
 
+actix-web endpoint handlers will automatically return 400 if they fail to deserialize the request parameters
+
 ### cargo-expand
 
 Install and use like
@@ -66,6 +68,20 @@ Often implemented in rust by piggybacking on the `Drop` trait.
 ### Running cargo tools using nightly
 
 `cargo +nightly command`
+
+### Digital Ocean CLI
+
+List apps with `doctl apps list`.
+The first column is the App ID.
+
+Create a new app with `doctl apps create --spec spec.yaml`.
+The [spec YAML](./spec.yaml) file declaritively specifies app resources.
+For this app we have a service and a database.
+
+Update apps with `doctl apps update APP_ID --spec=spec.yaml`.
+
+Migrate the database with `DATABASE_URL=<app-db-connection-string> sqlx migrate run`.
+You can find the connection string in "Connection Details" at "https://cloud.digitalocean.com/apps/APP_ID/settings/DB_NAME"
 
 ## TODOS
 
