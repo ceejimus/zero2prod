@@ -38,36 +38,34 @@ impl std::fmt::Debug for SubscribeError {
     }
 }
 
-pub struct StoreTokenError(sqlx::Error);
-
-impl std::fmt::Debug for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // f.debug_tuple("StoreTokenError").field(&self.0).finish()
-        // write!(f, "{}\nCaused by:\n\t{}", self, self.0)
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "A database error was encountered while trying to store a subscription token."
-        )
-    }
-}
-
-impl std::error::Error for StoreTokenError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
 impl ResponseError for SubscribeError {
     fn status_code(&self) -> reqwest::StatusCode {
         match self {
             SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
             SubscribeError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+#[derive(thiserror::Error)]
+pub enum ConfirmSubscriberError {
+    #[error("Failed to find subscriber that matches provided token.")]
+    InvalidTokenError,
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl std::fmt::Debug for ConfirmSubscriberError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl ResponseError for ConfirmSubscriberError {
+    fn status_code(&self) -> reqwest::StatusCode {
+        match self {
+            ConfirmSubscriberError::InvalidTokenError => StatusCode::UNAUTHORIZED,
+            ConfirmSubscriberError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -97,21 +95,28 @@ pub struct Parameters {
 pub(crate) async fn confirm_subscription(
     parameters: web::Query<Parameters>,
     pool: web::Data<PgPool>,
-) -> HttpResponse {
-    let id = match get_subscriber_id_from_token(&parameters.subscription_token, &pool).await {
-        Ok(id) => id,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
+) -> Result<HttpResponse, ConfirmSubscriberError> {
+    let mut transaction = pool
+        .begin()
+        .await
+        .context("Failed to open database transaction.")?;
 
-    match id {
-        None => HttpResponse::Unauthorized().finish(),
-        Some(subscriber_id) => {
-            if (confirm_subscriber(subscriber_id, &pool).await).is_err() {
-                return HttpResponse::InternalServerError().finish();
-            }
-            HttpResponse::Ok().finish()
-        }
-    }
+    let subscriber_id =
+        get_subscriber_id_from_token(&parameters.subscription_token, &mut transaction)
+            .await
+            .context("Failed to query subscriber ID from subscription token.")?
+            .ok_or(ConfirmSubscriberError::InvalidTokenError)?;
+
+    confirm_subscriber(subscriber_id, &mut transaction)
+        .await
+        .context("Failed to store new subscriber confirmation in database.")?;
+
+    transaction
+        .commit()
+        .await
+        .context("Failed to commit SQL transaction to confirm new subscriber.")?;
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(
@@ -133,7 +138,7 @@ pub(crate) async fn subscribe(
     let mut transaction = pool
         .begin()
         .await
-        .context("Failed to insert new subscriber in the database.")?;
+        .context("Failed to open database transaction.")?;
 
     let subscriber_id = insert_subscriber(&new_subscriber, &mut transaction)
         .await
@@ -220,7 +225,7 @@ async fn store_token(
     subscriber_id: Uuid,
     subscription_token: &str,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<(), StoreTokenError> {
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
     INSERT INTO subscription_tokens (subscription_token, subscriber_id)
@@ -230,18 +235,18 @@ async fn store_token(
         subscriber_id
     )
     .execute(transaction)
-    .await
-    .map_err(StoreTokenError)?;
+    .await?;
+
     Ok(())
 }
 
 #[tracing::instrument(
     name = "Retrieving subscriber ID from subscription token.",
-    skip(subscription_token, pool)
+    skip(subscription_token, transaction)
 )]
 async fn get_subscriber_id_from_token(
     subscription_token: &str,
-    pool: &PgPool,
+    transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Uuid>, sqlx::Error> {
     let result = sqlx::query!(
         r#"
@@ -250,13 +255,16 @@ async fn get_subscriber_id_from_token(
         "#,
         subscription_token
     )
-    .fetch_optional(pool)
+    .fetch_optional(transaction)
     .await?;
     Ok(result.map(|r| r.subscriber_id))
 }
 
-#[tracing::instrument(name = "Confirming subscriber", skip(subscriber_id, pool))]
-async fn confirm_subscriber(subscriber_id: Uuid, pool: &PgPool) -> Result<(), sqlx::Error> {
+#[tracing::instrument(name = "Confirming subscriber", skip(subscriber_id, transaction))]
+async fn confirm_subscriber(
+    subscriber_id: Uuid,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         UPDATE subscriptions
@@ -265,7 +273,7 @@ async fn confirm_subscriber(subscriber_id: Uuid, pool: &PgPool) -> Result<(), sq
     "#,
         subscriber_id
     )
-    .execute(pool)
+    .execute(transaction)
     .await?;
     Ok(())
 }

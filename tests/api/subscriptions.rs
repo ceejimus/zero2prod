@@ -220,13 +220,13 @@ async fn clicking_on_confirmation_link_confirms_a_subscriber() {
 }
 
 #[tokio::test]
-async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+async fn subscribe_fails_if_subscription_tokens_table_is_borked() {
     // Arrange
     let app = spawn_app().await;
     let body = "name=Ursula&email=ursula_le_guin%40gmail.com";
     // Sabotage the database
-    // sqlx::query("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;")
-    sqlx::query("ALTER TABLE subscriptions DROP COLUMN email;")
+    sqlx::query("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;")
+        // sqlx::query("ALTER TABLE subscriptions DROP COLUMN email;")
         .execute(&app.db_pool)
         .await
         .unwrap();

@@ -87,6 +87,7 @@ You can find the connection string in "Connection Details" at "https://cloud.dig
 
 ## TODOS
 
+- triage these TODOs
 - get code coverage to show on github
 - perform compatibility testing with newest sqlx-cli version
 - do better than "SKIP_DOCKER" flag in `scripts/init_db.sh`
@@ -111,3 +112,6 @@ You can find the connection string in "Connection Details" at "https://cloud.dig
   - see [how to strip symbols](https://github.com/johnthagen/min-sized-rust#strip-symbols-from-binary)
 - documentation!
 - how do extension traits work around rust's orphan rule?
+- refactor database access into some kind of DAL
+- break subscriptions.rs into its own module
+- create some functionality to easily execute postgres workflows inside transactions
