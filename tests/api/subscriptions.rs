@@ -218,3 +218,22 @@ async fn clicking_on_confirmation_link_confirms_a_subscriber() {
     assert_eq!(saved.name, "Ursula");
     assert_eq!(saved.status, "confirmed");
 }
+
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    // Arrange
+    let app = spawn_app().await;
+    let body = "name=Ursula&email=ursula_le_guin%40gmail.com";
+    // Sabotage the database
+    // sqlx::query("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;")
+    sqlx::query("ALTER TABLE subscriptions DROP COLUMN email;")
+        .execute(&app.db_pool)
+        .await
+        .unwrap();
+
+    // Act
+    let response = app.post_subscriptions(body.into()).await;
+
+    // Assert
+    assert_eq!(response.status().as_u16(), 500);
+}

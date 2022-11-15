@@ -83,18 +83,18 @@ Update apps with `doctl apps update APP_ID --spec=spec.yaml`.
 Migrate the database with `DATABASE_URL=<app-db-connection-string> sqlx migrate run`.
 You can find the connection string in "Connection Details" at "https://cloud.digitalocean.com/apps/APP_ID/settings/DB_NAME"
 
+### [notes about error video](error-handling-isnt-all-about-errors.nodes.md)
+
 ## TODOS
 
 - get code coverage to show on github
-- perform compatibility testing with newest sqlx-cli verion
+- perform compatibility testing with newest sqlx-cli version
 - do better than "SKIP_DOCKER" flag in `scripts/init_db.sh`
 - refactor `routes/mod.rs` to `routes.rs`
 - look into clippy warning in the routes mod saying the re-exports aren't used
 - get familiar with the GitHub Actions specs
   - fix "Node.js 12 actions are deprecated" warnings
-- get GitHub Actions tests to succeed w/o committing .env file
-- get GitHub Actions tests to succeed w/o committing Cargo.lock file
-- get GitHub Actions tests to succed w/o committing:
+- get GitHub Actions tests to succeed w/o committing:
   - Cargo.lock - hash of this file used in cache
   - .env file
     - the problem is sqlx macros need the DATABASE_URL environment variable and grab it from `.env`
@@ -110,3 +110,4 @@ You can find the connection string in "Connection Details" at "https://cloud.dig
   - see [rust-musl-builder](https://github.com/emk/rust-musl-builder) - pg #150 in book
   - see [how to strip symbols](https://github.com/johnthagen/min-sized-rust#strip-symbols-from-binary)
 - documentation!
+- how do extension traits work around rust's orphan rule?
