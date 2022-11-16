@@ -1,7 +1,7 @@
 pub mod health_check;
+pub mod newsletters;
 pub mod subscriptions;
 
-#[allow(unused_imports)]
 pub use health_check::*;
-#[allow(unused_imports)]
+pub use newsletters::*;
 pub use subscriptions::*;

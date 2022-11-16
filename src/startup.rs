@@ -90,6 +90,7 @@ pub fn run(
                 "/subscriptions/confirm",
                 web::get().to(confirm_subscription),
             )
+            .route("/newsletters", web::post().to(publish_newsletter))
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(application_base_url.clone())

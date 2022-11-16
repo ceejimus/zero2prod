@@ -1,5 +1,5 @@
 use actix_web::HttpResponse;
 
-pub async fn health_check() -> HttpResponse {
+pub async fn publish_newsletter() -> HttpResponse {
     HttpResponse::Ok().finish()
 }

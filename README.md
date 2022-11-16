@@ -115,3 +115,4 @@ You can find the connection string in "Connection Details" at "https://cloud.dig
 - refactor database access into some kind of DAL
 - break subscriptions.rs into its own module
 - create some functionality to easily execute postgres workflows inside transactions
+- create a macro (ooh) for using chain_fmt_error for Debug implementations (lofty?)
