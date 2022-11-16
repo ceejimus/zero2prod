@@ -1,4 +1,3 @@
-use serde_json::error;
 use wiremock::{
     matchers::{method, path},
     Mock, ResponseTemplate,
