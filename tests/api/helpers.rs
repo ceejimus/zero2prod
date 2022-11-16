@@ -63,10 +63,16 @@ impl TestApp {
         let html_confirmation_link = &get_link(body["HtmlBody"].as_str().unwrap());
         let text_confirmation_link = &get_link(body["TextBody"].as_str().unwrap());
 
-        ConfirmationLinks {
-            html: Url::parse(html_confirmation_link).unwrap(),
-            plain_text: Url::parse(text_confirmation_link).unwrap(),
-        }
+        let mut html = Url::parse(html_confirmation_link).unwrap();
+        let mut plain_text = Url::parse(text_confirmation_link).unwrap();
+
+        html.set_port(Some(self.port))
+            .expect("Failed to set URL port.");
+        plain_text
+            .set_port(Some(self.port))
+            .expect("Failed to set URL port.");
+
+        ConfirmationLinks { html, plain_text }
     }
 }
 
