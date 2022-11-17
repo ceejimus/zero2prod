@@ -2,12 +2,12 @@
 set -x
 set -eo pipefail
 
-if [ -z "$(command -v psql)"]; then
+if [ -z "$(command -v psql)" ]; then
   echo >&2 "Error: psql is not installed."
   exit 1
 fi
 
-if [ -z "$(command -v sqlx)"]; then
+if [ -z "$(command -v sqlx)" ]; then
   echo >&2 "Error: sqlx ~0.6 is not installed."
   exit 1
 fi
