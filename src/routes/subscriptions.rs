@@ -12,18 +12,6 @@ use crate::{
     startup::ApplicationBaseUrl,
 };
 
-fn error_chain_fmt(
-    e: &impl std::error::Error,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    writeln!(f, "[_] {}\n", e)?;
-    let chain = std::iter::successors(e.source(), |e| e.source());
-    for (i, link) in chain.enumerate() {
-        writeln!(f, "[{i}] Caused by:\n\t{}", link)?;
-    }
-    Ok(())
-}
-
 #[derive(thiserror::Error)]
 pub enum SubscribeError {
     #[error("{0}")]
@@ -34,7 +22,7 @@ pub enum SubscribeError {
 
 impl std::fmt::Debug for SubscribeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
+        super::utils::error_chain_fmt(self, f)
     }
 }
 
@@ -57,7 +45,7 @@ pub enum ConfirmSubscriberError {
 
 impl std::fmt::Debug for ConfirmSubscriberError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
+        super::utils::error_chain_fmt(self, f)
     }
 }
 
@@ -188,7 +176,7 @@ async fn send_confirmation_email(
     );
 
     email_client
-        .send_email(new_subscriber.email, "Welcome!", &html_body, &text_body)
+        .send_email(&new_subscriber.email, "Welcome!", &html_body, &text_body)
         .await
 }
 
