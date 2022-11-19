@@ -1,3 +1,4 @@
+use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -32,6 +33,7 @@ pub struct TestApp {
     pub db_pool: PgPool,
     pub email_server: MockServer,
     pub port: u16,
+    pub test_user: TestUser,
 }
 
 impl TestApp {
@@ -78,6 +80,8 @@ impl TestApp {
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
         reqwest::Client::new()
             .post(&format!("{}/newsletters", &self.address))
+            // .basic_auth(test_user.0, Some(test_user.1))
+            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .json(&body)
             .send()
             .await
@@ -100,6 +104,11 @@ pub async fn spawn_app() -> TestApp {
 
     configure_database(&configuration.database).await;
 
+    let db_pool = get_connection_pool(&configuration.database);
+
+    let test_user = TestUser::generate();
+    test_user.store(&db_pool).await;
+
     let application = Application::build(&configuration)
         .await
         .expect("Failed to build application");
@@ -114,6 +123,7 @@ pub async fn spawn_app() -> TestApp {
         db_pool: get_connection_pool(&configuration.database),
         email_server,
         port,
+        test_user,
     }
 }
 
@@ -137,4 +147,49 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate database");
 
     connection_pool
+}
+
+pub struct TestUser {
+    pub user_id: Uuid,
+    pub username: String,
+    pub password: String,
+}
+
+impl TestUser {
+    pub fn generate() -> Self {
+        Self {
+            user_id: uuid::Uuid::new_v4(),
+            username: uuid::Uuid::new_v4().to_string(),
+            password: uuid::Uuid::new_v4().to_string(),
+        }
+    }
+
+    async fn store(&self, pool: &PgPool) {
+        // let argon2_params =
+        // Params::new(15000, 2, 1, None).expect("Failed to create Argon2 params.");
+        // let hasher = Argon2::new(
+        //     argon2::Algorithm::Argon2id,
+        //     argon2::Version::V0x13,
+        //     argon2_params,
+        // );
+
+        let salt = SaltString::generate(rand::thread_rng());
+        let password_hash = Argon2::default()
+            .hash_password(self.password.as_bytes(), &salt)
+            .expect("Failed to generate password hash")
+            .to_string();
+
+        sqlx::query!(
+            r#"
+            INSERT INTO users (user_id, username, password_hash)
+            VALUES ($1, $2, $3)
+            "#,
+            self.user_id,
+            self.username,
+            password_hash,
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to insert test user into database.");
+    }
 }
