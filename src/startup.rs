@@ -1,9 +1,16 @@
 use std::net::TcpListener;
 
+use actix_session::storage::RedisSessionStore;
+use actix_session::SessionMiddleware;
+use actix_web::cookie::Key;
 use actix_web::dev::Server;
 use actix_web::web;
 use actix_web::App;
 use actix_web::HttpServer;
+use actix_web_flash_messages::storage::CookieMessageStore;
+use actix_web_flash_messages::FlashMessagesFramework;
+use secrecy::ExposeSecret;
+use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use tracing_actix_web::TracingLogger;
@@ -19,9 +26,10 @@ pub struct Application {
 }
 
 pub struct ApplicationBaseUrl(pub String);
+pub struct HmacSecret(pub Secret<String>);
 
 impl Application {
-    pub async fn build(configuration: &Settings) -> Result<Self, std::io::Error> {
+    pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
         let sender_email = configuration
             .email_client
             .sender()
@@ -33,9 +41,9 @@ impl Application {
         // since our `timeout()` method takes &self, we need to make sure we call it BEFORE we partially move it
         let timeout = configuration.email_client.timeout();
         let email_client = EmailClient::new(
-            configuration.email_client.base_url.clone(),
+            configuration.email_client.base_url,
             sender_email,
-            configuration.email_client.authorization_token.clone(),
+            configuration.email_client.authorization_token,
             timeout,
         );
 
@@ -48,7 +56,10 @@ impl Application {
             connection_pool,
             email_client,
             configuration.application.base_url.clone(),
-        )?;
+            HmacSecret(configuration.application.hmac_secret),
+            configuration.redis_uri,
+        )
+        .await?;
 
         Ok(Application { port, server })
     }
@@ -69,22 +80,38 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
         .connect_lazy_with(configuration.with_db())
 }
 
-pub fn run(
+async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
-) -> std::io::Result<Server> {
+    hmac_secret: HmacSecret,
+    redis_uri: Secret<String>,
+) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool); // this is just a fancy Arc
     let email_client = web::Data::new(email_client);
     let application_base_url = web::Data::new(ApplicationBaseUrl(base_url));
+    let secret_key = Key::from(hmac_secret.0.expose_secret().as_bytes());
+    let message_store = CookieMessageStore::builder(secret_key.clone()).build();
+    let message_framework = FlashMessagesFramework::builder(message_store).build();
+    let hmac_secret = web::Data::new(hmac_secret);
+    let redis_store = RedisSessionStore::new(redis_uri.expose_secret()).await?;
     // HttpServer handles all transport-level concerns (port binding, TLS, connections, etc.)
     let server = HttpServer::new(move || {
         // App handles logic (routing, request handling, etc.)
         App::new()
+            .wrap(message_framework.clone())
+            .wrap(SessionMiddleware::new(
+                redis_store.clone(),
+                secret_key.clone(),
+            ))
             .wrap(TracingLogger::default())
             // .route("/", Route::new().guard(Guard::get()).to(_))
+            .route("/", web::get().to(home))
             .route("/health_check", web::get().to(health_check))
+            .route("/login", web::get().to(login_form))
+            .route("/login", web::post().to(login))
+            .route("/admin/dashboard", web::get().to(admin_dashboard))
             .route("/subscriptions", web::post().to(subscribe))
             .route(
                 "/subscriptions/confirm",
@@ -94,6 +121,7 @@ pub fn run(
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(application_base_url.clone())
+            .app_data(hmac_secret.clone())
     })
     // .bind(address)? // we can have the server create a listener for us
     .listen(listener)?

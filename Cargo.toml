@@ -12,20 +12,26 @@ path = "src/main.rs"
 name = "zero2prod"
 
 [dependencies]
+actix-session = { version = "0.7.2", features = ["redis-rs-tls-session"] }
 actix-web = "4"
+actix-web-flash-messages = { version = "0.4.2", features = ["cookies"] }
 anyhow = "1.0.66"
 argon2 = { version = "0.4.1", features = ["std"] }
 base64 = "0.13.1"
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 config = "0.13.2" # has yaml deserialization baked in
+hex = "0.4.3"
+hmac = { version = "0.12.1", features = ["std"] }
+htmlescape = "0.3.1"
 once_cell = "1.16.0"
 rand = { version = "0.8.5", features = ["std_rng"] }
 # env_logger = "0.9.1"
 # log = "0.4.17"
-reqwest = { version = "0.11.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11.12", default-features = false, features = ["json", "rustls-tls", "cookies"] }
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde-aux = "4.0.0"
+sha2 = "0.10.6"
 # sha3 = "0.10.6"
 sqlx = { version = "~0.6", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "offline"] }
 thiserror = "1.0.37"
@@ -37,7 +43,8 @@ tracing-bunyan-formatter = "0.3.4"
 tracing-log = "0.1.3"
 tracing-subscriber = { version = "0.3.16", features = ["registry", "env-filter"] }
 unicode-segmentation = "1.10.0"
-uuid = { version = "1.2.1", features = ["v4"] }
+urlencoding = "2.1.2"
+uuid = { version = "1.2.1", features = ["v4", "serde"] }
 validator = "0.16.0"
 
 [dev-dependencies]

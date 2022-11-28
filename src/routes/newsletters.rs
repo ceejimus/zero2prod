@@ -3,12 +3,13 @@ use actix_web::{
     web, HttpRequest, HttpResponse, ResponseError,
 };
 use anyhow::Context;
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use secrecy::{ExposeSecret, Secret};
+use secrecy::Secret;
 use sqlx::PgPool;
 
 use crate::{
-    domain::SubscriberEmail, email_client::EmailClient, telemetry::spawn_blocking_with_tracing,
+    authentication::{validate_credential, AuthError, Credential},
+    domain::SubscriberEmail,
+    email_client::EmailClient,
 };
 
 #[derive(serde::Deserialize)]
@@ -61,17 +62,6 @@ impl ResponseError for PublishError {
     }
 }
 
-#[tracing::instrument(
-    name = "Publishing new newsletter",
-    skip(request, body, pool, email_client),
-    fields(
-        username=tracing::field::Empty,
-        user_id=tracing::field::Empty,
-        newsletter_title = %body.title,
-        newsletter_content_html = %body.content.html,
-        newsletter_content_text = %body.content.text,
-    ),
-)]
 pub async fn publish_newsletter(
     request: HttpRequest,
     body: web::Json<BodyData>,
@@ -81,7 +71,13 @@ pub async fn publish_newsletter(
     let credential = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     tracing::Span::current().record("username", &tracing::field::display(&credential.username));
 
-    let user_id = validate_credential(credential, &pool).await?;
+    let user_id = validate_credential(credential, &pool)
+        .await
+        .map_err(|e| match e {
+            AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
+            AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
+        })?;
+
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
     let confirmed_subscribers = get_confirmed_subscribers(&pool)
@@ -136,88 +132,6 @@ async fn get_confirmed_subscribers(
     })
     .collect();
     Ok(confirmed_subscribers)
-}
-
-struct Credential {
-    username: String,
-    password: Secret<String>,
-}
-
-#[tracing::instrument(name = "Validating user credential.", skip(credential, pool))]
-async fn validate_credential(
-    credential: Credential,
-    pool: &PgPool,
-) -> Result<uuid::Uuid, PublishError> {
-    let mut user_id = None;
-    let mut expected_password_hash = Secret::new(
-        "$argon2id\
-        $v=19\
-        $m=4096,t=3,p=1\
-        $FgMACLYouoP8Z5A3h7Ak2g\
-        $NtAv9R1eorR2bns060FnMldSvdKReUmf3koNNeIwOaQ"
-            .to_string(),
-    );
-
-    if let Some((stored_user_id, stored_password_hash)) =
-        get_stored_credentials(&credential.username, pool)
-            .await
-            .map_err(PublishError::UnexpectedError)?
-    {
-        user_id = Some(stored_user_id);
-        dbg!(&stored_password_hash.expose_secret());
-        expected_password_hash = stored_password_hash;
-    }
-
-    spawn_blocking_with_tracing(move || {
-        verify_password_hash(expected_password_hash, credential.password)
-    })
-    .await
-    .context("Failed to spawn blocking task.")
-    .map_err(PublishError::UnexpectedError)??;
-
-    user_id.ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Unknown username")))
-}
-
-#[tracing::instrument(
-    name = "Verifying password hash",
-    skip(expected_password_hash, provided_password)
-)]
-fn verify_password_hash(
-    expected_password_hash: Secret<String>,
-    provided_password: Secret<String>,
-) -> Result<(), PublishError> {
-    let expected_password_hash = PasswordHash::new(expected_password_hash.expose_secret())
-        .context("Failed to parse PHC string format.")
-        .map_err(PublishError::UnexpectedError)?;
-
-    Argon2::default()
-        .verify_password(
-            provided_password.expose_secret().as_bytes(),
-            &expected_password_hash,
-        )
-        .context("Failed to verify password")
-        .map_err(PublishError::AuthError)
-}
-
-#[tracing::instrument(name = "Retrieving stored credential", skip(username, pool))]
-async fn get_stored_credentials(
-    username: &str,
-    pool: &PgPool,
-) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
-    let row: Option<_> = sqlx::query!(
-        r#"
-        SELECT user_id, password_hash
-        FROM users
-        WHERE username = $1
-        "#,
-        username,
-    )
-    .fetch_optional(pool)
-    .await
-    .context("Failed query authentication credential.")?
-    .map(|row| (row.user_id, Secret::new(row.password_hash)));
-
-    Ok(row)
 }
 
 #[tracing::instrument(name = "Authenticating user request headers.", skip(headers), fields())]
