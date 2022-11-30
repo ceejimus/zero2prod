@@ -1,4 +1,4 @@
-use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
+use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHasher, Version};
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -61,6 +61,54 @@ impl TestApp {
             .unwrap()
     }
 
+    pub async fn post_logout(&self) -> reqwest::Response {
+        self.api_client
+            .post(&format!("{}/admin/logout", self.address))
+            .send()
+            .await
+            .expect("Failed to send post.")
+    }
+
+    pub async fn get_admin_dashboard(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/admin/dashboard", &self.address))
+            .send()
+            .await
+            .expect("Failed to send get.")
+    }
+
+    pub async fn get_admin_dashboard_html(&self) -> String {
+        let response = self.get_admin_dashboard().await;
+        assert_eq!(response.status().as_u16(), 200);
+        response.text().await.unwrap()
+    }
+
+    pub async fn get_change_password(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/admin/password", &self.address))
+            .send()
+            .await
+            .expect("Failed to send get.")
+    }
+
+    pub async fn get_change_password_html(&self) -> String {
+        let response = self.get_change_password().await;
+        assert_eq!(response.status().as_u16(), 200);
+        response.text().await.unwrap()
+    }
+
+    pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/admin/password", self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to send post.")
+    }
+
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/subscriptions", &self.address))
@@ -99,19 +147,6 @@ impl TestApp {
             .expect("Failed to set URL port.");
 
         ConfirmationLinks { html, plain_text }
-    }
-
-    pub async fn get_admin_dashboard(&self) -> String {
-        let response = self
-            .api_client
-            .get(&format!("{}/admin/dashboard", &self.address))
-            .send()
-            .await
-            .expect("Failed to send get.");
-
-        assert_eq!(response.status().as_u16(), 200);
-
-        response.text().await.unwrap()
     }
 
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
@@ -219,10 +254,15 @@ impl TestUser {
         // );
 
         let salt = SaltString::generate(rand::thread_rng());
-        let password_hash = Argon2::default()
-            .hash_password(self.password.as_bytes(), &salt)
-            .expect("Failed to generate password hash")
-            .to_string();
+
+        let password_hash = Argon2::new(
+            Algorithm::Argon2id,
+            Version::V0x13,
+            Params::new(15000, 2, 1, None).unwrap(),
+        )
+        .hash_password(self.password.as_bytes(), &salt)
+        .expect("Failed to generate password hash")
+        .to_string();
 
         sqlx::query!(
             r#"

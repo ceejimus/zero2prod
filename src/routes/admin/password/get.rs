@@ -1,36 +1,37 @@
-use actix_web::{http::header::ContentType, HttpResponse};
+use actix_web::{http::header::ContentType, web, HttpResponse};
 use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 
-pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
+use crate::authentication::UserId;
+
+#[tracing::instrument(name = "Delivering change password form", skip(flash_messages))]
+pub async fn change_password_form(
+    _: web::ReqData<UserId>,
+    flash_messages: IncomingFlashMessages,
+) -> Result<HttpResponse, actix_web::Error> {
     let mut msg_html = String::new();
     for m in flash_messages.iter() {
         writeln!(msg_html, "<p><i>{}</i></p>", m.content()).unwrap();
     }
 
-    HttpResponse::Ok()
+    Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(format!(
             r#"<!DOCTYPE html>
         <html lang="en">
           <head>
             <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-            <title>Home</title>
+            <title>Change Password</title>
           </head>
           <body>
-            {msg_html}
-            <form action="/login" method="post">
+              {msg_html}
+            <form action="/admin/password" method="post">
               <label>
-                Username:
-                <input type="text" placeholder="Enter Username" name="username"/>
-              </label>
-              <label>
-                Password:
                 <input type="password" placeholder="Enter Password" name="password"/>
               </label>
               <button type="submit">Login</button>
             </form>
           </body>
         </html>"#
-        ))
+        )))
 }

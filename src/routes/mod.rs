@@ -12,3 +12,4 @@ pub use home::*;
 pub use login::*;
 pub use newsletters::*;
 pub use subscriptions::*;
+pub use utils::{e500, see_other};

@@ -1,14 +1,13 @@
-use actix_session::Session;
 use actix_web::{error::InternalError, web, HttpResponse};
 
 use actix_web_flash_messages::FlashMessage;
-use reqwest::header::LOCATION;
 use secrecy::Secret;
 use sqlx::PgPool;
 
 use crate::{
     authentication::{validate_credential, Credential},
-    routes::utils::error_chain_fmt,
+    routes::utils::{error_chain_fmt, see_other},
+    session_state::TypedSession,
 };
 
 #[derive(serde::Deserialize)]
@@ -31,23 +30,11 @@ impl std::fmt::Debug for LoginError {
     }
 }
 
-// impl ResponseError for LoginError {
-//     fn status_code(&self) -> reqwest::StatusCode {
-//         // match self {
-//         // LoginError::AuthError(_) => reqwest::StatusCode::UNAUTHORIZED,
-//         // LoginError::UnexpectedError(_) => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-//         // }
-//         reqwest::StatusCode::SEE_OTHER
-//     }
-
-//     fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {}
-// }
-
 #[tracing::instrument(name = "Processing login request", skip(form, pool, session))]
 pub async fn login(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    session: Session,
+    session: TypedSession,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credential = Credential {
         username: form.0.username,
@@ -60,12 +47,10 @@ pub async fn login(
 
             session.renew();
             session
-                .insert("user_id", user_id)
-                .map_err(|e| login_redirect(LoginError::UnexpectedError(e.into())))?;
+                .insert_user(user_id)
+                .map_err(|e| login_redirect(LoginError::UnexpectedError(e)))?;
 
-            Ok(HttpResponse::SeeOther()
-                .insert_header((LOCATION, "/admin/dashboard"))
-                .finish())
+            Ok(see_other("/admin/dashboard"))
         }
         Err(e) => {
             let e = match e {
@@ -85,8 +70,5 @@ pub async fn login(
 fn login_redirect(e: LoginError) -> InternalError<LoginError> {
     FlashMessage::error(e.to_string()).send();
 
-    let response = HttpResponse::SeeOther()
-        .insert_header((LOCATION, "/login"))
-        .finish();
-    InternalError::from_response(e, response)
+    InternalError::from_response(e, see_other("/login"))
 }
