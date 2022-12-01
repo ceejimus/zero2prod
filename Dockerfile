@@ -1,4 +1,5 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.63.0 as chef
+# FROM lukemathwalker/cargo-chef:latest-rust-1.63.0 as chef
+FROM lukemathwalker/cargo-chef:latest as chef
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 
@@ -14,7 +15,8 @@ COPY . .
 ENV SQLX_OFFLINE true
 RUN cargo build --release --bin zero2prod
 
-FROM debian:bullseye-slim AS runtime
+# FROM debian:bullseye-slim AS runtime
+FROM debian:bullseye AS runtime
 WORKDIR /app
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl ca-certificates \

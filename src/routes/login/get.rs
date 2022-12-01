@@ -2,6 +2,7 @@ use actix_web::{http::header::ContentType, HttpResponse};
 use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 
+#[tracing::instrument(name = "Delivering login form", skip(flash_messages))]
 pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
     let mut msg_html = String::new();
     for m in flash_messages.iter() {
