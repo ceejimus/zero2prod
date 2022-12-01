@@ -13,3 +13,5 @@
 # config
 # configuration.yaml # temp
 # .env # temp
+
+/scripts/setenv_email.sh

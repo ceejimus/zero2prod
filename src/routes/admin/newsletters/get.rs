@@ -4,8 +4,8 @@ use std::fmt::Write;
 
 use crate::authentication::UserId;
 
-#[tracing::instrument(name = "Delivering change password form", skip(flash_messages))]
-pub async fn change_password_form(
+#[tracing::instrument(name = "Delivering publish newsletter form", skip(flash_messages))]
+pub async fn publish_newsletter_form(
     _: web::ReqData<UserId>,
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, actix_web::Error> {
@@ -21,23 +21,21 @@ pub async fn change_password_form(
         <html lang="en">
           <head>
             <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-            <title>Change Password</title>
+            <title>Post Newsletter</title>
           </head>
           <body>
-              {msg_html}
-            <form action="/admin/password" method="post">
-              <label>Current Password
-                <input type="password" placeholder="Enter Current Password" name="current_password"/>
+            {msg_html}
+            <form action="/admin/newsletters" method="post">
+              <label>Title
+                <input type="text" placeholder="New Newsletter" name="title"/>
               </label>
-              <br />
-              <label>New Password
-                <input type="password" placeholder="Enter New Password" name="new_password"/>
+              <label>Text Content
+                <input type="text" placeholder="Content" name="text_content"/>
               </label>
-              <br />
-              <label>Confirm Password
-                <input type="password" placeholder="Enter Password Again" name="new_password_check"/>
+              <label>HTML Content
+                <input type="text" placeholder="Content" name="html_content"/>
               </label>
-              <button type="submit">Login</button>
+              <button type="submit">Post</button>
             </form>
           </body>
         </html>"#

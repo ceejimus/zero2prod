@@ -38,6 +38,17 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    pub async fn login(&self) {
+        let login_body = serde_json::json!({
+            "username": &self.test_user.username,
+            "password": &self.test_user.password,
+        });
+
+        let response = self.post_login(&login_body).await;
+        assert_eq!(response.status().as_u16(), 303);
+        assert_ne!(response.headers().get("Location").unwrap(), "/login");
+    }
+
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
     where
         Body: serde::Serialize,
@@ -67,6 +78,14 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to send post.")
+    }
+
+    pub async fn get_root(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/", &self.address))
+            .send()
+            .await
+            .expect("Failed to send get.")
     }
 
     pub async fn get_admin_dashboard(&self) -> reqwest::Response {
@@ -149,16 +168,29 @@ impl TestApp {
         ConfirmationLinks { html, plain_text }
     }
 
-    pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
+    pub async fn post_newsletters<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
         self.api_client
-            .post(&format!("{}/newsletters", &self.address))
-            // .basic_auth(test_user.0, Some(test_user.1))
-            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
-            .json(&body)
+            .post(&format!("{}/admin/newsletters", &self.address))
+            .form(body)
             .send()
             .await
             .expect("Failed to send post.")
     }
+
+    // pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
+    // where
+    //     Body: serde::Serialize,
+    // {
+    //     self.api_client
+    //         .post(&format!("{}/admin/password", self.address))
+    //         .form(body)
+    //         .send()
+    //         .await
+    //         .expect("Failed to send post.")
+    // }
 }
 
 pub async fn spawn_app() -> TestApp {
