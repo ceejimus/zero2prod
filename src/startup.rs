@@ -31,23 +31,12 @@ pub struct HmacSecret(pub Secret<String>);
 
 impl Application {
     pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
-        let sender_email = configuration
-            .email_client
-            .sender()
-            .expect("Invalid sender email address.");
         let connection_pool = get_connection_pool(&configuration.database);
         // interesting subtlety - because the EmailClientSettings authorization_token's type doesn't implement Copy (Secret)
         // whenever we move the value somewhere it results in a "Partial Move" see: https://doc.rust-lang.org/rust-by-example/scope/move/partial_move.html
         // meaning we can access unmoved values but not the moved member of the struct OR the struct as a whole
         // since our `timeout()` method takes &self, we need to make sure we call it BEFORE we partially move it
-        let timeout = configuration.email_client.timeout();
-        let email_client = EmailClient::new(
-            configuration.email_client.base_url,
-            sender_email,
-            configuration.email_client.authorization_token,
-            timeout,
-        );
-
+        let email_client = configuration.email_client.client();
         let address = configuration.application.get_address();
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();

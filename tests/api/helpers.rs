@@ -6,6 +6,8 @@ use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
+    email_client::EmailClient,
+    issue_deliver_worker::{try_execute_task, ExecutionOutcome},
     startup::{get_connection_pool, Application},
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -35,9 +37,22 @@ pub struct TestApp {
     pub port: u16,
     pub test_user: TestUser,
     pub api_client: reqwest::Client,
+    pub email_client: EmailClient,
 }
 
 impl TestApp {
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
+        }
+    }
+
     pub async fn login(&self) {
         let login_body = serde_json::json!({
             "username": &self.test_user.username,
@@ -128,6 +143,20 @@ impl TestApp {
             .expect("Failed to send post.")
     }
 
+    pub async fn get_publish_newsletter(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/admin/newsletters", &self.address))
+            .send()
+            .await
+            .expect("Failed to send get.")
+    }
+
+    pub async fn get_publish_newsletter_html(&self) -> String {
+        let response = self.get_publish_newsletter().await;
+        assert_eq!(response.status().as_u16(), 200);
+        response.text().await.unwrap()
+    }
+
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/subscriptions", &self.address))
@@ -213,7 +242,7 @@ pub async fn spawn_app() -> TestApp {
     let test_user = TestUser::generate();
     test_user.store(&db_pool).await;
 
-    let application = Application::build(configuration)
+    let application = Application::build(configuration.clone())
         .await
         .expect("Failed to build application");
     let port = application.port();
@@ -233,6 +262,7 @@ pub async fn spawn_app() -> TestApp {
         // db_pool: get_connection_pool(&configuration.database),
         db_pool,
         email_server,
+        email_client: configuration.email_client.client(),
         port,
         test_user,
         api_client,

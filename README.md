@@ -85,6 +85,11 @@ You can find the connection string in "Connection Details" at "https://cloud.dig
 
 ### [notes about error video](error-handling-isnt-all-about-errors.nodes.md)
 
+### Cargo sqlx
+
+Update the offline [sqlx schema file](./sqlx-data.json) via:
+`cargo sqlx prepare -- --lib`
+
 ## TODOS
 
 - triage these TODOs

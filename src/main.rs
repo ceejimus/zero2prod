@@ -1,6 +1,9 @@
-use zero2prod::configuration::get_configuration;
+use std::fmt::{Debug, Display};
+
+use tokio::task::JoinError;
 use zero2prod::startup::Application;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
+use zero2prod::{configuration::get_configuration, issue_deliver_worker::run_worker_until_stopped};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -9,9 +12,38 @@ async fn main() -> anyhow::Result<()> {
 
     let configuration = get_configuration().expect("Failed to load config.");
 
-    let application = Application::build(configuration).await?;
+    let application = Application::build(configuration.clone()).await?;
+    let application_task = tokio::spawn(application.run_until_stopped());
+    let worker = tokio::spawn(run_worker_until_stopped(configuration));
 
-    application.run_until_stopped().await?;
+    tokio::select! {
+        o = application_task => report_exit("API", o),
+        o = worker => report_exit("Background worker", o),
+    };
 
     Ok(())
+}
+
+fn report_exit(task_name: &str, outcome: Result<Result<(), impl Debug + Display>, JoinError>) {
+    match outcome {
+        Ok(Ok(())) => {
+            tracing::info!("{} has exited", task_name)
+        }
+        Ok(Err(e)) => {
+            tracing::error!(
+                error.cause_chain = ?e,
+                error.message = %e,
+                "{} failed",
+                task_name
+            )
+        }
+        Err(e) => {
+            tracing::error!(
+                error.cause_chain = ?e,
+                error.message = %e,
+                "{} failed to complete",
+                task_name
+            )
+        }
+    }
 }
